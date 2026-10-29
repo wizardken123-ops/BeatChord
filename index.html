@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BeatChord Studio // Precision Audio & Harmonic Station</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- JSZip CDN 用於本機打包 ZIP 下載 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#080a0f',
+            charcoal: '#0f131a',
+            graphite: '#181d26',
+            subtle: '#222834',
+            accent: {
+              gold: '#d4af37',
+              cobalt: '#3b82f6',
+              coral: '#f43f5e',
+              emerald: '#10b981',
+              violet: '#8b5cf6'
+            }
+          },
+          fontFamily: {
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #080a0f; }
+    ::-webkit-scrollbar-thumb { background: #1e2430; border-radius: 2px; }
+    input[type=range] { accent-color: #3b82f6; }
+    .border-glow { border: 1px solid rgba(255, 255, 255, 0.07); }
+    .tap-pressed { transform: scale(0.97); filter: brightness(1.2); }
+  </style>
+</head>
+<body class="bg-obsidian text-slate-300 min-h-screen flex flex-col items-center p-4 md:p-8 font-sans selection:bg-accent-gold/20 selection:text-accent-gold">
+
+  <!-- 頂部精密儀表列 -->
+  <header class="w-full max-w-5xl flex flex-col md:flex-row items-center justify-between border-b border-glow pb-5 mb-8 gap-4">
+    <div class="flex items-center gap-3">
+      <div id="backendIndicator" class="w-3 h-3 rounded-full bg-accent-cobalt shadow-[0_0_10px_#3b82f6]"></div>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          BEATCHORD STUDIO
+          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-graphite text-slate-400 border border-glow">v2.4 PRO</span>
+        </h1>
+        <p class="text-xs text-slate-500 font-mono mt-0.5">STUDIO MINIMALIST // CONNECTED TO BACKEND API</p>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-6 text-xs font-mono text-slate-400">
+      <span class="flex items-center gap-1.5"><span id="serverStatusDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> API: localhost:3001</span>
+      <span class="border-l border-glow pl-4">LOGIC PRO OPTIMIZED</span>
+      <span class="border-l border-glow pl-4 text-slate-500">24-BIT / 48kHz</span>
+    </div>
+  </header>
+
+  <main class="w-full max-w-5xl space-y-6">
+
+    <!-- 01 // 搜尋、YouTube 辨識與本地拖放區域 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- 搜尋與即時下拉建議模組 -->
+      <div class="md:col-span-2 bg-charcoal border-glow rounded-xl p-5 relative">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-[10px] font-mono uppercase tracking-widest text-slate-400">01 // TRACK DISCOVERY</label>
+          <span class="text-[10px] text-slate-400 font-mono">SPOTIFY & HOOKTHEORY ARCHITECTURE</span>
+        </div>
+
+        <div class="relative">
+          <div class="flex gap-2">
+            <input 
+              id="mainSearchInput" 
+              type="text" 
+              placeholder="輸入曲名、歌手，或貼上 YouTube 網址..." 
+              autocomplete="off"
+              class="w-full bg-obsidian border-glow rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-accent-cobalt/60 font-mono placeholder:text-slate-600 transition"
+            />
+            <button 
+              id="searchTriggerBtn"
+              class="px-5 py-3 bg-graphite hover:bg-subtle text-slate-200 border-glow rounded-lg text-xs font-mono font-semibold transition shrink-0 active:scale-95"
+            >
+              QUERY
+            </button>
+          </div>
+
+          <!-- 即時下拉搜尋建議列表 -->
+          <div id="searchSuggestionsBox" class="hidden absolute left-0 right-0 top-full mt-1.5 bg-graphite border-glow rounded-lg shadow-2xl z-50 overflow-hidden divide-y divide-white/5 font-mono text-xs"></div>
+        </div>
+
+        <!-- 偵測提示 -->
+        <div id="ytDetectNotice" class="hidden mt-2.5 text-[11px] font-mono text-accent-cobalt flex items-center gap-2">
+          <span>◈</span> 已辨識為 YouTube 影片網址，將自動請求後端 oEmbed 解析標題
+        </div>
+
+        <!-- 預設熱門示範曲目標籤 -->
+        <div class="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-glow text-xs">
+          <span class="text-[10px] font-mono text-slate-400 uppercase">DEMO PRESETS:</span>
+          <button class="sample-tag px-2 py-0.5 rounded bg-obsidian border-glow text-slate-300 hover:text-white text-[11px] font-mono transition" data-query="Shape of You">Shape of You</button>
+          <button class="sample-tag px-2 py-0.5 rounded bg-obsidian border-glow text-slate-300 hover:text-white text-[11px] font-mono transition" data-query="Let It Be">Let It Be</button>
+          <button class="sample-tag px-2 py-0.5 rounded bg-obsidian border-glow text-slate-300 hover:text-white text-[11px] font-mono transition" data-query="Blinding Lights">Blinding Lights</button>
+          <button class="sample-tag px-2 py-0.5 rounded bg-obsidian border-glow text-slate-300 hover:text-white text-[11px] font-mono transition" data-query="Sunday Morning">Sunday Morning</button>
+        </div>
+      </div>
+
+      <!-- 本地音檔拖放上傳區 (Web Audio API) -->
+      <div 
+        id="fileDropSurface"
+        class="bg-charcoal border-glow rounded-xl p-5 flex flex-col justify-between items-center text-center cursor-pointer hover:border-slate-500/40 transition group relative overflow-hidden"
+      >
+        <input type="file" id="localFileInput" accept="audio/*" class="hidden" />
+        <div class="w-full flex justify-between text-[10px] font-mono text-slate-400">
+          <span>02 // LOCAL ANALYZER</span>
+          <span class="text-accent-gold">UNLOCKED STEMS</span>
+        </div>
+
+        <div class="my-4">
+          <div class="w-10 h-10 mx-auto rounded-full bg-obsidian border-glow flex items-center justify-center text-slate-400 group-hover:text-accent-gold transition mb-2">
+            ↓
+          </div>
+          <p class="text-xs font-semibold text-slate-200">拖放或瀏覽本地音檔</p>
+          <p class="text-[10px] text-slate-400 font-mono mt-0.5">WAV / MP3 // 解鎖 4-STEM 分離</p>
+        </div>
+
+        <div id="localFileStatus" class="w-full text-[10px] font-mono text-slate-400 truncate px-2 py-1 bg-obsidian rounded border-glow">
+          STATUS: READY FOR INPUT
+        </div>
+
+        <div id="fileDecodingMask" class="hidden absolute inset-0 bg-obsidian/95 flex flex-col items-center justify-center gap-2">
+          <div class="w-5 h-5 border-2 border-accent-gold border-t-transparent rounded-full animate-spin"></div>
+          <span class="text-[10px] font-mono text-accent-gold">DECODING PCM STREAM...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 02 // 測速儀錶板 (BPM Tapper) -->
+    <div class="bg-charcoal border-glow rounded-xl p-5 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div class="text-center md:text-left">
+        <span class="text-[10px] font-mono text-slate-400 uppercase tracking-widest">03 // PRECISION TEMPO</span>
+        <h2 class="text-base font-bold text-white mt-0.5">BPM Tapper 敲擊測速儀</h2>
+        <p class="text-xs text-slate-400 mt-0.5">點選按鈕或於全域敲擊 [空白鍵 Space] 進行滑動加權測速</p>
+      </div>
+
+      <div class="flex items-center gap-8">
+        <div class="text-center">
+          <div id="tapperValue" class="text-4xl font-mono font-black text-accent-cobalt tracking-tighter">--</div>
+          <span class="text-[10px] font-mono text-slate-400 uppercase">DETECTED BPM</span>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <button 
+            id="tapperButton"
+            class="px-8 py-3 bg-graphite hover:bg-subtle active:tap-pressed border border-accent-cobalt/30 text-white font-mono font-bold rounded-lg text-xs shadow-lg transition select-none"
+          >
+            TAP [SPACE]
+          </button>
+          <div class="flex justify-between items-center text-[10px] font-mono text-slate-400 px-1">
+            <span id="tapCountLabel">BEATS: 0</span>
+            <button id="resetTapperAction" class="hover:text-slate-300 underline">RESET</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 // 歌曲詳情、和弦架構與 MIDI 導出 -->
+    <div id="trackOverviewModule" class="bg-charcoal border-glow rounded-xl p-6 md:p-8 space-y-6">
+      <div class="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-glow gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1.5">
+            <span id="metaSourceLabel" class="text-[9px] font-mono px-2 py-0.5 rounded bg-obsidian text-emerald-400 border border-emerald-500/20 uppercase font-semibold">INITIAL SPEC</span>
+            <span id="metaGenreTags" class="flex gap-1"></span>
+          </div>
+          <h2 id="metaTrackTitle" class="text-2xl md:text-3xl font-extrabold text-white tracking-tight">Shape of You</h2>
+          <p id="metaTrackArtist" class="text-xs font-mono text-slate-400 mt-0.5">Ed Sheeran // Master Track</p>
+        </div>
+
+        <!-- 核心速度指示板 -->
+        <div class="flex items-center bg-obsidian rounded-lg border-glow p-3 gap-4 font-mono">
+          <div class="text-center px-2">
+            <div class="text-[10px] text-slate-400">HALF</div>
+            <div id="metaHalfBpm" class="text-xs font-bold text-slate-400">48</div>
+          </div>
+          <div class="text-center px-4 border-x border-glow">
+            <div class="text-[10px] text-accent-cobalt font-semibold uppercase">TEMPO</div>
+            <div id="metaMainBpm" class="text-3xl font-black text-white">96</div>
+            <div class="text-[9px] text-slate-400">BPM</div>
+          </div>
+          <div class="text-center px-2">
+            <div class="text-[10px] text-slate-400">DOUBLE</div>
+            <div id="metaDoubleBpm" class="text-xs font-bold text-slate-400">192</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 調性與和弦進程 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="bg-obsidian border-glow rounded-lg p-4 flex flex-col justify-center">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono text-slate-400 uppercase tracking-widest">KEY SIGNATURE</span>
+            <span id="metaTimeSigBadge" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-graphite text-accent-cobalt border-glow">4/4 TIME</span>
+          </div>
+          <div id="metaKeyDisplay" class="text-xl font-bold font-mono text-accent-gold mt-1">C# Minor</div>
+          <div id="metaSignatureDetails" class="text-[11px] font-mono text-slate-400 mt-2">TIME SIGNATURE: 4/4 // TONALITY CONFIRMED</div>
+        </div>
+
+        <div class="md:col-span-2 bg-obsidian border-glow rounded-lg p-4 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono text-slate-400 uppercase tracking-widest">HARMONIC PROGRESSION</span>
+            <span id="metaProgressionRoman" class="text-xs font-mono font-bold text-accent-gold">vi - IV - I - V</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="bg-charcoal border-glow rounded p-2.5">
+              <span class="text-[10px] font-mono text-slate-400 block mb-1">VERSE CHORDS</span>
+              <div id="metaVerseChords" class="flex gap-1.5 font-mono text-xs font-bold text-slate-200"></div>
+            </div>
+            <div class="bg-charcoal border-glow rounded p-2.5">
+              <span class="text-[10px] font-mono text-slate-400 block mb-1">CHORUS CHORDS</span>
+              <div id="metaChorusChords" class="flex gap-1.5 font-mono text-xs font-bold text-slate-200"></div>
+            </div>
+          </div>
+
+          <div id="analysisPanel" class="bg-charcoal border-glow rounded p-2.5 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <span id="analysisStatusText" class="text-[10px] font-mono text-slate-400">和弦需要音訊分析</span>
+              <button id="runAnalysisBtn" class="shrink-0 px-2.5 py-1 bg-accent-cobalt/10 hover:bg-accent-cobalt/20 text-accent-cobalt border border-accent-cobalt/30 rounded text-[10px] font-mono font-bold transition">
+                ▶ 分析真實和弦 (YOUTUBE 音訊)
+              </button>
+            </div>
+            <div id="analysisProgressWrap" class="hidden w-full bg-obsidian h-1 rounded overflow-hidden">
+              <div id="analysisProgressBar" class="bg-accent-cobalt h-full w-0 transition-all duration-300"></div>
+            </div>
+            <div id="analysisMeta" class="hidden text-[10px] font-mono text-slate-400 space-y-1"></div>
+          </div>
+
+          <div class="flex items-center justify-between pt-2 border-t border-glow">
+            <span class="text-[10px] font-mono text-slate-400">LOGIC PRO READY // DRAG & DROP MIDI</span>
+            <div class="flex items-center gap-2">
+              <button id="dlVerseMidiBtn" class="px-2.5 py-1 bg-graphite hover:bg-subtle text-slate-300 rounded border-glow text-[10px] font-mono transition">
+                .MID [VERSE]
+              </button>
+              <button id="dlChorusMidiBtn" class="px-2.5 py-1 bg-graphite hover:bg-subtle text-slate-300 rounded border-glow text-[10px] font-mono transition">
+                .MID [CHORUS]
+              </button>
+              <button id="dlFullChordsMidiBtn" class="px-3 py-1 bg-accent-gold/10 hover:bg-accent-gold/20 text-accent-gold border border-accent-gold/30 rounded text-[10px] font-mono font-bold transition">
+                ★ 匯出完整和弦 MIDI (.MID)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 同和弦名曲推薦 -->
+      <div class="pt-4 border-t border-glow">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-xs font-bold font-mono text-slate-300 flex items-center gap-2">
+            <span>◈ 採用相同和弦進程之曲目</span>
+            <span id="sameProgressionCode" class="text-accent-gold font-normal">(vi - IV - I - V)</span>
+          </span>
+          <span class="text-[10px] font-mono text-slate-400">THEORYTAB INDEX</span>
+        </div>
+        <div id="similarTracksGrid" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+      </div>
+    </div>
+
+    <!-- 04 // 本地音檔專屬 STEM SPLITTER 與音高譜 (Piano Roll) -->
+    <div class="bg-charcoal border-glow rounded-xl p-6 md:p-8 space-y-6 relative overflow-hidden">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-glow gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-[9px] font-mono px-2 py-0.5 rounded bg-obsidian text-accent-coral border border-accent-coral/20 uppercase font-bold">LOCAL EXCLUSIVE</span>
+            <span class="text-[10px] font-mono text-slate-400">4-STEM DEMUCS SEPARATION</span>
+          </div>
+          <h2 class="text-xl font-bold text-white tracking-tight">4-Stem 樂器分離與 MIDI 採譜儀</h2>
+          <p class="text-xs text-slate-400 mt-0.5">專門處理本地音檔，自選欲拆分的聲部，提供獨立音高譜、WAV 及全軌 MIDI 導出</p>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button 
+            id="startStemExtractionBtn"
+            class="px-5 py-2.5 bg-accent-gold/15 hover:bg-accent-gold/25 active:scale-95 text-accent-gold border border-accent-gold/30 rounded-lg text-xs font-mono font-bold transition flex items-center gap-2"
+          >
+            <span>⚡ 開始分離所選聲部</span>
+          </button>
+          <button 
+            id="masterPlaybackBtn"
+            class="hidden px-4 py-2.5 bg-graphite hover:bg-subtle text-slate-200 border-glow rounded-lg text-xs font-mono transition"
+          >
+            <span id="masterPlayIcon">▶</span> <span id="masterPlayLabel">PREVIEW ALL</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 尚未載入本地檔案鎖定橫幅 -->
+      <div id="stemLockedBanner" class="p-4 rounded-lg bg-obsidian border-glow flex items-center gap-3 text-xs font-mono">
+        <span class="text-accent-gold text-base">⚠️</span>
+        <div>
+          <span class="text-slate-200 font-bold">目前鎖定：</span>
+          <span class="text-slate-400">商業串流歌曲受版權保護無法直接拆軌。請將您的 MP3/WAV 拖放至上方「02 // LOCAL ANALYZER」即可解鎖。</span>
+        </div>
+      </div>
+
+      <!-- 聲部自選核取模組 (Stem Selector) -->
+      <div class="bg-obsidian border-glow rounded-lg p-4 space-y-2">
+        <div class="flex items-center justify-between text-xs font-mono">
+          <span class="text-slate-300 text-[11px]">SELECT STEMS TO PROCESS // 勾選欲拆分軌道：</span>
+          <button id="toggleAllStemsAction" class="text-[10px] text-accent-cobalt hover:underline">TOGGLE ALL</button>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1 font-mono text-xs">
+          <label class="flex items-center gap-2.5 p-2.5 bg-charcoal border-glow rounded cursor-pointer hover:border-slate-500 transition">
+            <input type="checkbox" id="chkStemVocals" class="stem-check rounded bg-obsidian border-glow text-accent-coral focus:ring-0" checked>
+            <span class="font-bold text-accent-coral">🎤 VOCALS 人聲</span>
+          </label>
+          <label class="flex items-center gap-2.5 p-2.5 bg-charcoal border-glow rounded cursor-pointer hover:border-slate-500 transition">
+            <input type="checkbox" id="chkStemDrums" class="stem-check rounded bg-obsidian border-glow text-accent-cobalt focus:ring-0" checked>
+            <span class="font-bold text-accent-cobalt">🥁 DRUMS 鼓組</span>
+          </label>
+          <label class="flex items-center gap-2.5 p-2.5 bg-charcoal border-glow rounded cursor-pointer hover:border-slate-500 transition">
+            <input type="checkbox" id="chkStemBass" class="stem-check rounded bg-obsidian border-glow text-accent-emerald focus:ring-0" checked>
+            <span class="font-bold text-accent-emerald">🎸 BASS 貝斯</span>
+          </label>
+          <label class="flex items-center gap-2.5 p-2.5 bg-charcoal border-glow rounded cursor-pointer hover:border-slate-500 transition">
+            <input type="checkbox" id="chkStemOther" class="stem-check rounded bg-obsidian border-glow text-accent-gold focus:ring-0" checked>
+            <span class="font-bold text-accent-gold">🎹 OTHER 伴奏</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 分離運算進度條 -->
+      <div id="separationProgressSection" class="hidden bg-obsidian border-glow rounded-lg p-4 space-y-2 font-mono">
+        <div class="flex justify-between text-[11px] text-slate-400">
+          <span id="sepStatusText">EXTRACTING PHASE VECTORS...</span>
+          <span id="sepPercentageText" class="text-accent-gold font-bold">0%</span>
+        </div>
+        <div class="w-full bg-graphite h-1.5 rounded-full overflow-hidden">
+          <div id="sepProgressBar" class="bg-accent-gold h-full w-0 transition-all duration-200"></div>
+        </div>
+      </div>
+
+      <!-- 4 軌硬體質感混音台 -->
+      <div id="stemsConsole" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4"></div>
+
+      <!-- 人聲音高譜視覺化 (Piano Roll Pitch Tracker) -->
+      <div id="vocalPitchRollContainer" class="hidden bg-obsidian border-glow rounded-lg p-4 space-y-3 font-mono">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="text-[10px] text-accent-coral uppercase font-bold">VOCAL PITCH ROLL // 鋼琴捲軸基頻軌跡</span>
+            <span class="text-[9px] text-slate-400">F0 PITCH ESTIMATION</span>
+          </div>
+          <button id="dlVocalMelodyMidiBtn" class="px-2.5 py-1 bg-graphite hover:bg-subtle text-accent-coral border-glow rounded text-[10px] font-bold transition">
+            ↓ 匯出人聲旋律 MIDI (VOCAL_LEAD.MID)
+          </button>
+        </div>
+        <canvas id="pitchCanvas" class="w-full h-28 bg-charcoal/80 rounded border-glow block"></canvas>
+      </div>
+
+      <!-- 打包下載底列 -->
+      <div id="stemsDownloadFooter" class="hidden flex flex-col sm:flex-row items-center justify-between pt-4 border-t border-glow gap-3 font-mono">
+        <span class="text-xs text-slate-400">ALL STEMS READY // 支援直接匯入 LOGIC PRO 專案</span>
+        <div class="flex items-center gap-3">
+          <button id="dlAllMidiZipBtn" class="px-4 py-2 bg-graphite hover:bg-subtle text-slate-200 border-glow rounded-lg text-xs font-bold transition">
+            📦 打包下載全軌 MIDI (.ZIP)
+          </button>
+          <button id="dlAllWavZipBtn" class="px-4 py-2 bg-accent-gold/20 hover:bg-accent-gold/30 text-accent-gold border border-accent-gold/40 rounded-lg text-xs font-bold transition">
+            ★ 打包下載完整 STEMS (.ZIP)
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 // 和弦進程反向檢索庫 -->
+    <div class="bg-charcoal border-glow rounded-xl p-6 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono">
+        <div>
+          <span class="text-[10px] text-slate-400 uppercase tracking-widest">05 // REVERSE PROGRESSION SEARCH</span>
+          <h2 class="text-sm font-bold text-white mt-0.5">經典和弦套路反向檢索</h2>
+        </div>
+        <div class="flex flex-wrap gap-1.5" id="progFilterButtonGroup">
+          <button class="prog-filter-btn px-2.5 py-1 bg-accent-cobalt text-white rounded text-[11px] font-bold transition" data-prog="I - V - vi - IV">I - V - vi - IV</button>
+          <button class="prog-filter-btn px-2.5 py-1 bg-obsidian text-slate-400 hover:text-white rounded border-glow text-[11px] transition" data-prog="vi - IV - I - V">vi - IV - I - V</button>
+          <button class="prog-filter-btn px-2.5 py-1 bg-obsidian text-slate-400 hover:text-white rounded border-glow text-[11px] transition" data-prog="ii - V - I">ii - V - I</button>
+          <button class="prog-filter-btn px-2.5 py-1 bg-obsidian text-slate-400 hover:text-white rounded border-glow text-[11px] transition" data-prog="I - IV - V">I - IV - V</button>
+        </div>
+      </div>
+
+      <div class="bg-obsidian border-glow rounded-lg p-3 overflow-x-auto">
+        <table class="w-full text-left font-mono text-xs">
+          <thead>
+            <tr class="text-slate-400 border-b border-glow">
+              <th class="pb-2 font-semibold">TITLE</th>
+              <th class="pb-2 font-semibold">ARTIST</th>
+              <th class="pb-2 font-semibold">BPM</th>
+              <th class="pb-2 font-semibold">KEY</th>
+              <th class="pb-2 font-semibold text-right">ACTION</th>
+            </tr>
+          </thead>
+          <tbody id="reverseCatalogTable" class="divide-y divide-white/5 text-slate-300"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="mt-12 text-center text-xs font-mono text-slate-400 pb-8">
+    BEATCHORD STUDIO // DUAL-ENGINE ARCHITECTURE // 2026 EDITION
+  </footer>
+
+  <!-- 前端核心邏輯與後端 API 串接 -->
+  <script>
+    const API_BASE = "http://localhost:3001/api";
+
+    // 本地示範快取與離線後備資料庫
+    const FALLBACK_CATALOG = [
+      {
+        id: "1",
+        title: "Shape of You",
+        artist: "Ed Sheeran",
+        genre: ["Pop", "Tropical House"],
+        bpm: 96,
+        key: "C# Minor",
+        roman: "vi - IV - I - V",
+        verse: ["C#m", "A", "E", "B"],
+        chorus: ["C#m", "A", "E", "B"],
+        midiNotes: [61, 57, 52, 59]
+      },
+      {
+        id: "2",
+        title: "Let It Be",
+        artist: "The Beatles",
+        genre: ["Classic Rock", "Pop"],
+        bpm: 71,
+        key: "C Major",
+        roman: "I - V - vi - IV",
+        verse: ["C", "G", "Am", "F"],
+        chorus: ["Am", "G", "F", "C"],
+        midiNotes: [60, 55, 57, 53]
+      },
+      {
+        id: "3",
+        title: "Someone Like You",
+        artist: "Adele",
+        genre: ["Soul", "Pop"],
+        bpm: 68,
+        key: "A Major",
+        roman: "I - V - vi - IV",
+        verse: ["A", "E", "F#m", "D"],
+        chorus: ["A", "E", "F#m", "D"],
+        midiNotes: [57, 52, 54, 50]
+      },
+      {
+        id: "4",
+        title: "Blinding Lights",
+        artist: "The Weeknd",
+        genre: ["Synthwave", "Pop"],
+        bpm: 171,
+        key: "F Minor",
+        roman: "vi - IV - I - V",
+        verse: ["Fm", "Db", "Ab", "Eb"],
+        chorus: ["Fm", "Db", "Ab", "Eb"],
+        midiNotes: [53, 49, 56, 51]
+      },
+      {
+        id: "5",
+        title: "Sunday Morning",
+        artist: "Maroon 5",
+        genre: ["Pop Soul", "Funk"],
+        bpm: 88,
+        key: "C Major",
+        roman: "ii - V - I",
+        verse: ["Dm9", "G13", "Cmaj7"],
+        chorus: ["Dm9", "G13", "Cmaj7"],
+        midiNotes: [50, 55, 60]
+      },
+      {
+        id: "6",
+        title: "La Bamba",
+        artist: "Ritchie Valens",
+        genre: ["Latin Rock"],
+        bpm: 150,
+        key: "C Major",
+        roman: "I - IV - V",
+        verse: ["C", "F", "G"],
+        chorus: ["C", "F", "G"],
+        midiNotes: [60, 53, 55]
+      }
+    ];
+
+    let activeTrack = { ...FALLBACK_CATALOG[0], isDemo: true };
+    let isLocalAudioActive = false;
+    let localFileName = "";
+
+    // ==========================================
+    // 01. 搜尋、YouTube 辨識與真後端 API 串接
+    // ==========================================
+    const searchInput = document.getElementById("mainSearchInput");
+    const suggestionsBox = document.getElementById("searchSuggestionsBox");
+    const ytNotice = document.getElementById("ytDetectNotice");
+    const searchTrigger = document.getElementById("searchTriggerBtn");
+
+    const checkIsYoutube = (val) => /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/i.test(val.trim());
+
+    // 輸入監聽與即時下拉選單
+    searchInput.addEventListener("input", async (e) => {
+      const q = e.target.value.trim();
+
+      if (checkIsYoutube(q)) {
+        ytNotice.classList.remove("hidden");
+        suggestionsBox.classList.add("hidden");
+        searchTrigger.textContent = "PARSE YT";
+        return;
+      }
+
+      ytNotice.classList.add("hidden");
+      searchTrigger.textContent = "QUERY";
+
+      if (q.length === 0) {
+        suggestionsBox.classList.add("hidden");
+        return;
+      }
+
+      clearTimeout(suggestTimer);
+      suggestTimer = setTimeout(() => loadSuggestions(q), 250);
+    });
+
+    let suggestTimer = null;
+    let suggestSeq = 0;
+    const suggestionCache = new Map();
+    const escapeHtml = (v) => String(v ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    const fmtDur = (ms) => `${Math.floor(ms / 60000)}:${String(Math.round((ms % 60000) / 1000)).padStart(2, "0")}`;
+
+    async function loadSuggestions(q) {
+      const seq = ++suggestSeq;
+      const local = FALLBACK_CATALOG
+        .filter(item => item.title.toLowerCase().includes(q.toLowerCase()) || item.artist.toLowerCase().includes(q.toLowerCase()))
+        .map(m => ({ id: m.id, title: m.title, artist: m.artist, right: `${m.bpm} BPM // ${m.key}`, tag: "DEMO" }));
+      let remote = [];
+      if (q.length >= 2) {
+        try {
+          const r = await fetch(`${API_BASE}/suggest?q=${encodeURIComponent(q)}`);
+          if (r.ok) {
+            remote = ((await r.json()).items || []).map(it => {
+              const id = `sp:${it.spotify_id}`;
+              suggestionCache.set(id, it);
+              return { id, title: it.title, artist: it.artist, right: it.duration_ms ? fmtDur(it.duration_ms) : "", tag: "SPOTIFY" };
+            });
+          }
+        } catch (err) { /* 後端未開：只顯示示範庫 */ }
+      }
+      if (seq !== suggestSeq) return; // 已有較新嘅輸入，作廢呢次結果
+      const items = [...remote, ...local].slice(0, 8);
+      if (!items.length) { suggestionsBox.classList.add("hidden"); return; }
+      suggestionsBox.innerHTML = items.map(m => `
+        <div class="px-4 py-2.5 hover:bg-subtle cursor-pointer flex justify-between items-center transition" onclick="selectSuggestion('${m.id}')">
+          <div>
+            <span class="text-white font-bold">${escapeHtml(m.title)}</span>
+            <span class="text-slate-400 ml-2">// ${escapeHtml(m.artist)}</span>
+          </div>
+          <div class="text-[10px] font-mono ${m.tag === "SPOTIFY" ? "text-emerald-400" : "text-accent-gold"}">${escapeHtml(m.right)} ${m.tag === "DEMO" ? "// DEMO" : ""}</div>
+        </div>
+      `).join("");
+      suggestionsBox.classList.remove("hidden");
+    }
+
+    window.selectSuggestion = function(id) {
+      suggestionsBox.classList.add("hidden");
+      if (String(id).startsWith("sp:")) {
+        const it = suggestionCache.get(id);
+        if (!it) return;
+        searchInput.value = `${it.title} - ${it.artist}`;
+        fetchBackendTrack(`${it.title} ${it.primary_artist || ""}`.trim(), null, { spotifyId: it.spotify_id });
+        return;
+      }
+      const found = FALLBACK_CATALOG.find(s => s.id === id);
+      if (found) {
+        searchInput.value = `${found.title} - ${found.artist}`;
+        renderTrack({ ...found, isDemo: true }, "DEMO CATALOG");
+      }
+    };
+
+    document.addEventListener("click", (e) => {
+      if (!searchInput.contains(e.target) && !suggestionsBox.contains(e.target)) {
+        suggestionsBox.classList.add("hidden");
+      }
+    });
+
+    // 觸發搜尋向後端發送請求
+    async function executeSearch() {
+      const val = searchInput.value.trim();
+      if (!val) return;
+
+      suggestionsBox.classList.add("hidden");
+
+      if (checkIsYoutube(val)) {
+        // 1. YouTube 連結呼叫後端 oEmbed 解析
+        searchTrigger.textContent = "PARSING...";
+        try {
+          const ytRes = await fetch(`${API_BASE}/youtube`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: val })
+          });
+          const ytData = await ytRes.json();
+          const searchQuery = ytData.cleaned_query || val;
+
+          // 再透過抓到的歌名轉向查詢特徵
+          await fetchBackendTrack(searchQuery, "YOUTUBE OEMBED", { youtubeUrl: val });
+        } catch (err) {
+          console.warn("後端 YouTube 端點連線失敗，啟用本地推測:", err);
+          renderTrack(blankTrack(val, { youtubeUrl: val }), "YOUTUBE (後端未連線)");
+        } finally {
+          searchTrigger.textContent = "PARSE YT";
+        }
+      } else {
+        // 2. 關鍵字呼叫後端 Spotify / 模擬搜尋 API
+        searchTrigger.textContent = "FETCHING...";
+        await fetchBackendTrack(val);
+        searchTrigger.textContent = "QUERY";
+      }
+    }
+
+    function blankTrack(title, extra = {}) {
+      return {
+        id: Date.now().toString(), title, artist: "Unknown Artist", genre: [],
+        bpm: null, key: null, camelot: null, time_signature: null, time_signature_verified: false,
+        roman: null, verse: null, chorus: null, ...extra
+      };
+    }
+
+    async function fetchBackendTrack(queryStr, sourceTag, opts = {}) {
+      const params = new URLSearchParams({ q: queryStr });
+      if (opts.spotifyId) params.set("spotify_id", opts.spotifyId);
+      let data = null;
+      try {
+        const response = await fetch(`${API_BASE}/search?${params}`);
+        const body = await response.json();
+        data = response.ok ? body : (body.result || null);
+      } catch (err) {
+        console.warn("無法連接至本地後端 API (http://localhost:3001):", err);
+      }
+
+      if (!data) {
+        const match = FALLBACK_CATALOG.find(s => s.title.toLowerCase().includes(queryStr.toLowerCase()));
+        if (match && !opts.youtubeUrl) return renderTrack({ ...match, isDemo: true }, "OFFLINE DEMO");
+        return renderTrack(blankTrack(queryStr, { youtubeUrl: opts.youtubeUrl || null, analysisQuery: queryStr }), "OFFLINE");
+      }
+
+      const artistKnown = data.artist && data.artist !== "Unknown Artist";
+      renderTrack({
+        id: data.id || Date.now().toString(),
+        title: data.title || queryStr,
+        artist: data.artist || "Unknown Artist",
+        genre: data.genre || [],
+        bpm: data.bpm || null,
+        bpmRaw: data.bpm_raw || null,
+        key: data.key || null,
+        camelot: data.camelot || null,
+        time_signature: data.time_signature || null,
+        time_signature_verified: false,
+        roman: null, verse: null, chorus: null,          // 和弦一律等真實分析
+        youtubeUrl: opts.youtubeUrl || null,
+        analysisQuery: `${artistKnown ? data.artist.split(",")[0] + " - " : ""}${data.title || queryStr}`,
+        fieldSources: data.field_sources || {}
+      }, sourceTag || data.source || "NO DATA");
+    }
+
+    searchTrigger.addEventListener("click", executeSearch);
+    searchInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") executeSearch();
+    });
+
+    document.querySelectorAll(".sample-tag").forEach(b => {
+      b.addEventListener("click", () => {
+        searchInput.value = b.dataset.query;
+        executeSearch();
+      });
+    });
+
+    // ==========================================
+    // 02. 歌曲詳情渲染與 MIDI 構建
+    // ==========================================
+    const KEY_PC = { C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, F: 5, "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11 };
+    function camelotOf(keyStr) {
+      const m = String(keyStr || "").match(/^([A-G][#b]?)\s*(Major|Minor)/i);
+      if (!m || KEY_PC[m[1]] === undefined) return null;
+      const pc = KEY_PC[m[1]];
+      return /major/i.test(m[2]) ? `${(((pc * 7) % 12) + 7) % 12 + 1}B` : `${(((pc * 7) % 12) + 4) % 12 + 1}A`;
+    }
+
+    function renderTrack(track, customSource) {
+      activeTrack = track;
+      if (track.sourceLabel === undefined || customSource) track.sourceLabel = customSource || track.sourceLabel;
+      const dash = "--";
+      document.getElementById("metaTrackTitle").textContent = track.title;
+      document.getElementById("metaTrackArtist").textContent = `${track.artist} // ${track.isDemo ? "Demo Data" : "Studio Track"}`;
+      document.getElementById("metaMainBpm").textContent = track.bpm ? Math.round(track.bpm) : dash;
+      document.getElementById("metaHalfBpm").textContent = track.bpm ? Math.round(track.bpm / 2) : dash;
+      document.getElementById("metaDoubleBpm").textContent = track.bpm ? Math.round(track.bpm * 2) : dash;
+
+      const currentKey = track.key || "未知調性";
+      const cam = track.camelot || camelotOf(track.key);
+      const currentSig = track.time_signature || "?/?";
+      document.getElementById("metaKeyDisplay").textContent = cam ? `${currentKey} · ${cam}` : currentKey;
+      document.getElementById("metaTimeSigBadge").textContent = `${currentSig} TIME${track.time_signature_verified ? "" : " ?"}`;
+      const sigNote = track.time_signature_verified ? "音訊量度" : (track.time_signature ? "數據庫 beta，未驗證" : "未知");
+      document.getElementById("metaSignatureDetails").textContent =
+        `TIME SIGNATURE: ${currentSig} (${sigNote})${cam ? ` // CAMELOT: ${cam}` : ""}`;
+
+      const romanText = track.roman
+        ? (track.romanRel && track.romanRel !== track.roman ? `${track.roman}  (關係大調: ${track.romanRel})` : track.roman)
+        : "未分析";
+      document.getElementById("metaProgressionRoman").textContent = romanText;
+      document.getElementById("sameProgressionCode").textContent = `(${track.romanRel || track.roman || "未分析"})`;
+      document.getElementById("metaSourceLabel").textContent = track.sourceLabel || "SPOTIFY API";
+
+      const tags = document.getElementById("metaGenreTags");
+      tags.innerHTML = (track.genre || []).map(g => `<span class="text-[9px] font-mono px-2 py-0.5 rounded bg-obsidian text-slate-300 border-glow">${escapeHtml(g)}</span>`).join("");
+
+      const formatChords = (arr, beats) => arr && arr.length
+        ? arr.map((ch, i) => `<span class="px-2 py-0.5 bg-obsidian border-glow rounded text-slate-300" title="${beats ? beats[i] + " 拍" : ""}">${escapeHtml(ch)}</span>`).join("")
+        : `<span class="text-slate-500 font-normal">— 未分析 —</span>`;
+      document.getElementById("metaVerseChords").innerHTML = formatChords(track.verse, track.verseBeats);
+      document.getElementById("metaChorusChords").innerHTML = formatChords(track.chorus, track.chorusBeats);
+
+      updateAnalysisPanel(track);
+      renderSimilar(track);
+    }
+
+    async function renderSimilar(track) {
+      const grid = document.getElementById("similarTracksGrid");
+      const card = (title, artist, right, sub, onclick) => `
+        <div class="bg-obsidian p-3 rounded-lg border-glow hover:border-slate-500 transition cursor-pointer" ${onclick}>
+          <div class="flex justify-between items-start font-mono">
+            <div>
+              <p class="font-bold text-xs text-white">${escapeHtml(title)}</p>
+              <p class="text-[10px] text-slate-400">${escapeHtml(artist)}</p>
+            </div>
+            <span class="text-[10px] font-bold text-accent-cobalt">${escapeHtml(right)}</span>
+          </div>
+          <div class="flex justify-between text-[10px] font-mono text-slate-400 mt-2">${sub}</div>
+        </div>`;
+
+      if (track.hooktheory_cp) {
+        grid.innerHTML = `<div class="col-span-3 text-xs font-mono text-slate-400 py-2">查詢 Hooktheory TheoryTab...</div>`;
+        try {
+          const r = await fetch(`${API_BASE}/similar?cp=${encodeURIComponent(track.hooktheory_cp)}`);
+          const d = await r.json();
+          if (activeTrack !== track) return;
+          if (d.items && d.items.length) {
+            grid.innerHTML = d.items.map(it => card(it.song, it.artist, (it.section || "").toUpperCase(),
+              `<span>THEORYTAB</span><span class="text-accent-gold">${escapeHtml(track.romanRel || track.roman)}</span>`,
+              `onclick="window.open('${encodeURI(it.url || "https://www.hooktheory.com/theorytab")}', '_blank')"`)).join("");
+            return;
+          }
+        } catch (err) { /* 落去用示範庫 */ }
+      }
+
+      const prog = track.romanRel || track.roman;
+      const similars = prog ? FALLBACK_CATALOG.filter(c => c.roman === prog && c.id !== track.id) : [];
+      if (similars.length > 0) {
+        grid.innerHTML = similars.map(s => card(s.title, s.artist, `${s.bpm} BPM`,
+          `<span>KEY: ${escapeHtml(s.key)}</span><span class="text-accent-gold">${escapeHtml(s.roman)}</span>`,
+          `onclick="selectSuggestion('${s.id}')"`)).join("");
+      } else {
+        grid.innerHTML = `<div class="col-span-3 text-xs font-mono text-slate-400 py-2">${prog ? "暫無相同進程曲目 (設定 Hooktheory 帳戶可查更多)" : "分析和弦後先可以搜尋相同進程。"}</div>`;
+      }
+    }
+
+    // ==========================================
+    // 02b. 真實音訊分析 (yt-dlp / 本地檔 → analyze.py)
+    // ==========================================
+    const analysisStatusText = document.getElementById("analysisStatusText");
+    const runAnalysisBtn = document.getElementById("runAnalysisBtn");
+    const analysisProgressWrap = document.getElementById("analysisProgressWrap");
+    const analysisProgressBar = document.getElementById("analysisProgressBar");
+    const analysisMeta = document.getElementById("analysisMeta");
+
+    const CONF_STYLE = {
+      high: "text-emerald-400", medium: "text-accent-gold", low: "text-accent-coral"
+    };
+    const confBadge = (label, c) => c
+      ? `<span class="${CONF_STYLE[c.level] || ""}">${label} ${Math.round(c.value * 100)}%${c.level === "low" ? " ⚠️ 建議人手確認" : ""}</span>`
+      : "";
+
+    function updateAnalysisPanel(track) {
+      runAnalysisBtn.classList.toggle("hidden", !!track.isDemo);
+      runAnalysisBtn.textContent = track.localFile ? "▶ 重新分析本地音檔" : (track.analysis ? "↻ 重新分析" : "▶ 分析真實和弦 (YOUTUBE 音訊)");
+      runAnalysisBtn.disabled = track.jobStatus === "running";
+      runAnalysisBtn.classList.toggle("opacity-50", track.jobStatus === "running");
+
+      if (track.isDemo) {
+        analysisStatusText.textContent = "示範資料 (非真實分析) — 請搜尋真實歌曲";
+        analysisProgressWrap.classList.add("hidden");
+        analysisMeta.classList.add("hidden");
+        return;
+      }
+      if (track.jobStatus === "running") {
+        analysisStatusText.textContent = track.jobMessage || "ANALYZING...";
+        analysisProgressWrap.classList.remove("hidden");
+        analysisProgressBar.style.width = `${track.jobProgress || 0}%`;
+      } else {
+        analysisProgressWrap.classList.add("hidden");
+        analysisStatusText.textContent = track.jobStatus === "error"
+          ? `❌ 分析失敗：${track.jobError || "未知錯誤"}`
+          : (track.analysis ? "✅ 真實音訊分析完成" : "和弦需要音訊分析 (會用 yt-dlp 抓 YouTube 音訊)");
+      }
+
+      const a = track.analysis;
+      if (!a) { analysisMeta.classList.add("hidden"); return; }
+      const src = a.source_audio || {};
+      const lines = [];
+      if (src.title) lines.push(`🎬 分析音源：<a href="${encodeURI(src.url || "#")}" target="_blank" class="text-accent-cobalt hover:underline">${escapeHtml(src.title)}</a>（請確認係原曲版本，唔係 live / cover）`);
+      if (src.local_file) lines.push(`📁 本地音檔：${escapeHtml(src.local_file)}`);
+      lines.push(`信心度：${[confBadge("KEY", a.confidence?.key), confBadge("和弦", a.confidence?.chords), confBadge("拍號", a.confidence?.time_signature), confBadge("段落", a.confidence?.sections)].filter(Boolean).join(" · ")}`);
+      if (a.bpm_note) lines.push(`BPM：原始 ${a.bpm_raw} → ${a.bpm}（${escapeHtml(a.bpm_note)}）`);
+      if (a.time_signature_changes?.length) lines.push(`拍號變化：偵測到部分小節為 ${a.time_signature_changes.join(", ")}`);
+      if (a.mode_analysis) lines.push(`調式：<span class="text-slate-200">${escapeHtml(a.mode_analysis.mode)}</span>${a.mode_analysis.evidence ? `（${escapeHtml(a.mode_analysis.evidence)}）` : ""}`);
+      if (a.melody) lines.push(`旋律：音域 ${a.melody.range.join("–")}（${a.melody.range_semitones} 半音）· 級進比例 ${Math.round(a.melody.stepwise_ratio * 100)}% · ${a.melody.note_count} 粒音`);
+      (a.warnings || []).forEach(w => lines.push(`<span class="text-accent-coral">⚠️ ${escapeHtml(w)}</span>`));
+      lines.push(`<span class="text-slate-500">ENGINES: ${Object.entries(a.engines || {}).map(([k, v]) => `${k}=${escapeHtml(v)}`).join(" | ")}</span>`);
+      analysisMeta.innerHTML = lines.map(l => `<div>${l}</div>`).join("");
+      analysisMeta.classList.remove("hidden");
+    }
+
+    function applyAnalysis(track, a) {
+      track.analysis = a;
+      track.jobStatus = "done";
+      track.bpm = a.bpm || track.bpm;
+      track.key = a.key;
+      track.camelot = a.camelot;
+      track.time_signature = a.time_signature;
+      track.time_signature_verified = true;
+      track.verse = a.sections?.verse?.chords || null;
+      track.verseBeats = a.sections?.verse?.beats || null;
+      track.chorus = a.sections?.chorus?.chords || null;
+      track.chorusBeats = a.sections?.chorus?.beats || null;
+      track.roman = a.roman;
+      track.romanRel = a.roman_relative_major;
+      track.hooktheory_cp = a.hooktheory_cp;
+      track.sourceLabel = `AUDIO ANALYSIS // ${a.source_audio?.title ? "YOUTUBE" : "LOCAL"}`;
+      if (activeTrack === track) {
+        renderTrack(track);
+        if (a.f0_curve && !pitchContainer.classList.contains("hidden")) drawPitchRoll();
+      }
+    }
+
+    async function startAnalysis(track) {
+      track.jobStatus = "running";
+      track.jobProgress = 0;
+      track.jobMessage = "SUBMITTING...";
+      track.jobError = null;
+      if (activeTrack === track) updateAnalysisPanel(track);
+      try {
+        let res;
+        if (track.localFile) {
+          const fd = new FormData();
+          fd.append("audio", track.localFile);
+          res = await fetch(`${API_BASE}/analyze`, { method: "POST", body: fd });
+        } else {
+          const body = track.youtubeUrl ? { youtube_url: track.youtubeUrl } : { query: track.analysisQuery || `${track.artist} - ${track.title}` };
+          res = await fetch(`${API_BASE}/analyze`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        }
+        const d = await res.json();
+        if (!d.job_id) throw new Error(d.error || "無法建立分析工作");
+        track.jobId = d.job_id;
+        pollJob(track);
+      } catch (err) {
+        track.jobStatus = "error";
+        track.jobError = err.message.includes("fetch") ? "連唔到後端 (localhost:3001)" : err.message;
+        if (activeTrack === track) updateAnalysisPanel(track);
+      }
+    }
+
+    async function pollJob(track) {
+      try {
+        const r = await fetch(`${API_BASE}/jobs/${track.jobId}`);
+        const j = await r.json();
+        if (j.status === "done") return applyAnalysis(track, j.result);
+        if (j.status === "error") {
+          track.jobStatus = "error";
+          track.jobError = /not a bot|Sign in/i.test(j.error || "") ? "YouTube 要求驗證，請喺 .env 設定 YTDLP_COOKIES_BROWSER" : (j.error || "").split("\n").pop().slice(0, 160);
+          if (activeTrack === track) updateAnalysisPanel(track);
+          return;
+        }
+        track.jobProgress = j.progress;
+        track.jobMessage = `${j.message}${j.youtube?.title ? ` // ${j.youtube.title}` : ""}`;
+        if (activeTrack === track) updateAnalysisPanel(track);
+        setTimeout(() => pollJob(track), 1500);
+      } catch (err) {
+        setTimeout(() => pollJob(track), 3000);
+      }
+    }
+
+    runAnalysisBtn.addEventListener("click", () => {
+      if (activeTrack && !activeTrack.isDemo && activeTrack.jobStatus !== "running") startAnalysis(activeTrack);
+    });
+
+    // ==========================================
+    // 03. 原生二進位 MIDI 檔案生成器 (Type 0 SMF)
+    // ==========================================
+    const NOTE_PC = { C: 0, "C#": 1, Db: 1, D: 2, "D#": 3, Eb: 3, E: 4, F: 5, "F#": 6, Gb: 6, G: 7, "G#": 8, Ab: 8, A: 9, "A#": 10, Bb: 10, B: 11 };
+    const CHORD_QUALITY = {
+      "": [0, 4, 7], maj: [0, 4, 7], M: [0, 4, 7], m: [0, 3, 7], min: [0, 3, 7],
+      "7": [0, 4, 7, 10], maj7: [0, 4, 7, 11], M7: [0, 4, 7, 11], m7: [0, 3, 7, 10], min7: [0, 3, 7, 10],
+      dim: [0, 3, 6], dim7: [0, 3, 6, 9], m7b5: [0, 3, 6, 10], aug: [0, 4, 8], "+": [0, 4, 8],
+      sus2: [0, 2, 7], sus4: [0, 5, 7], sus: [0, 5, 7], "7sus4": [0, 5, 7, 10], add9: [0, 4, 7, 14], madd9: [0, 3, 7, 14],
+      "6": [0, 4, 7, 9], m6: [0, 3, 7, 9], "9": [0, 4, 7, 10, 14], m9: [0, 3, 7, 10, 14], maj9: [0, 4, 7, 11, 14],
+      "11": [0, 4, 7, 10, 14, 17], m11: [0, 3, 7, 10, 14, 17], "13": [0, 4, 7, 10, 14, 21]
+    };
+
+    /** 和弦名 → MIDI 音符 (含低八度根音 / slash 低音)。"N.C." → [] (休止) */
+    function chordToNotes(name) {
+      const m = String(name).trim().match(/^([A-G])([#b]?)([^/]*)(?:\/([A-G][#b]?))?$/);
+      if (!m) return [];
+      const root = NOTE_PC[m[1] + m[2]];
+      let ivs = CHORD_QUALITY[m[3]];
+      if (!ivs) {
+        console.warn(`未識別和弦性質 "${m[3]}" (${name})，以大三和弦代替`);
+        ivs = m[3].startsWith("m") && !m[3].startsWith("maj") ? CHORD_QUALITY.m : CHORD_QUALITY[""];
+      }
+      let base = 48 + root;               // C3 起
+      if (base < 52) base += 12;          // 保持喺 E3–D#4，聲部唔會太低太濁
+      const bass = 36 + (m[4] ? NOTE_PC[m[4]] : root);
+      return [bass, ...ivs.map(i => base + i)];
+    }
+
+    function writeVarLen(val) {
+      const bytes = [val & 0x7F];
+      while ((val >>= 7)) bytes.unshift((val & 0x7F) | 0x80);
+      return bytes;
+    }
+
+    /** events: [{ notes: [midi...], beats: 4 }]，notes 空 = 休止 */
+    function buildMidi(events, bpm = 120, trackName = "Chords", timeSig = "4/4") {
+      const ticksPerBeat = 480;
+      const mpqn = Math.round(60000000 / (bpm || 120));
+      const [num, den] = String(timeSig || "4/4").split("/").map(Number);
+      const name = Array.from(new TextEncoder().encode(trackName));
+      const trackEvents = [
+        0x00, 0xFF, 0x03, ...writeVarLen(name.length), ...name,
+        0x00, 0xFF, 0x51, 0x03, (mpqn >> 16) & 0xFF, (mpqn >> 8) & 0xFF, mpqn & 0xFF,
+        0x00, 0xFF, 0x58, 0x04, num || 4, Math.log2(den || 4), 0x18, 0x08
+      ];
+      let pendingRest = 0;
+      events.forEach(ev => {
+        const dur = Math.max(1, Math.round((ev.beats || 4) * ticksPerBeat));
+        if (!ev.notes.length) { pendingRest += dur; return; }
+        ev.notes.forEach((note, i) => trackEvents.push(...writeVarLen(i === 0 ? pendingRest : 0), 0x90, note, 0x5A));
+        pendingRest = 0;
+        ev.notes.forEach((note, i) => trackEvents.push(...writeVarLen(i === 0 ? dur : 0), 0x80, note, 0x00));
+      });
+      trackEvents.push(0x00, 0xFF, 0x2F, 0x00);
+      const len = trackEvents.length;
+      const trackChunk = [0x4D, 0x54, 0x72, 0x6B, (len >> 24) & 0xFF, (len >> 16) & 0xFF, (len >> 8) & 0xFF, len & 0xFF, ...trackEvents];
+      const headerChunk = [0x4D, 0x54, 0x68, 0x64, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x01, (ticksPerBeat >> 8) & 0xFF, ticksPerBeat & 0xFF];
+      return new Uint8Array([...headerChunk, ...trackChunk]);
+    }
+
+    /** 和弦名陣列 → MIDI (每粒預設 4 拍，或用分析得出嘅拍數) */
+    function createChordMidi(chords, beats, bpm, trackName, timeSig) {
+      const events = chords.map((ch, i) => ({ notes: chordToNotes(ch), beats: beats?.[i] || 4 }));
+      return buildMidi(events, bpm, trackName, timeSig);
+    }
+
+    /** 舊介面相容：單音陣列，每粒 4 拍 */
+    function createMidiFile(notes, bpm = 120, trackName = "Track") {
+      return buildMidi(notes.map(n => ({ notes: [n], beats: 4 })), bpm, trackName);
+    }
+
+    async function triggerUrlDownload(url, filename) {
+      const r = await fetch(url.startsWith("http") ? url : API_BASE.replace(/\/api$/, "") + url);
+      if (!r.ok) throw new Error(`下載失敗 ${r.status}`);
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+
+    function triggerMidiDownload(byteArray, filename) {
+      const blob = new Blob([byteArray], { type: "audio/midi" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    const safeName = (t) => String(t || "Track").replace(/[\\/:*?"<>|]/g, "_");
+    function needChords(arr) {
+      if (arr && arr.length) return true;
+      alert("未有和弦資料。\n請先按「▶ 分析真實和弦」做音訊分析。");
+      return false;
+    }
+    const midiBpm = () => activeTrack.analysis?.bpm_raw || activeTrack.bpm || 120;
+
+    document.getElementById("dlFullChordsMidiBtn").addEventListener("click", async () => {
+      const t = activeTrack;
+      const fname = `${safeName(t.title)}_${Math.round(t.bpm || 120)}BPM_${safeName(t.key || "")}_Chords.mid`;
+      if (t.analysis?.midi?.chords) {
+        // 全曲真實和弦時間軸 (由後端按拍生成)
+        try { return await triggerUrlDownload(t.analysis.midi.chords, fname); } catch (e) { console.warn(e); }
+      }
+      const chords = [...(t.verse || []), ...(t.chorus || [])];
+      const beats = [...(t.verse || []).map((_, i) => t.verseBeats?.[i] || 4), ...(t.chorus || []).map((_, i) => t.chorusBeats?.[i] || 4)];
+      if (!needChords(chords)) return;
+      triggerMidiDownload(createChordMidi(chords, beats, midiBpm(), t.title, t.time_signature), fname);
+    });
+
+    document.getElementById("dlVerseMidiBtn").addEventListener("click", () => {
+      const t = activeTrack;
+      if (!needChords(t.verse)) return;
+      triggerMidiDownload(createChordMidi(t.verse, t.verseBeats, midiBpm(), "Verse", t.time_signature), `${safeName(t.title)}_Verse_Chords.mid`);
+    });
+
+    document.getElementById("dlChorusMidiBtn").addEventListener("click", () => {
+      const t = activeTrack;
+      if (!needChords(t.chorus)) return;
+      triggerMidiDownload(createChordMidi(t.chorus, t.chorusBeats, midiBpm(), "Chorus", t.time_signature), `${safeName(t.title)}_Chorus_Chords.mid`);
+    });
+
+    // ==========================================
+    // 04. BPM Tapper 測速儀
+    // ==========================================
+    let tapTimes = [];
+    let tapperResetTimeout = null;
+    const tapperVal = document.getElementById("tapperValue");
+    const tapCountLabel = document.getElementById("tapCountLabel");
+    const tapperButton = document.getElementById("tapperButton");
+    const resetTapper = document.getElementById("resetTapperAction");
+
+    function tapPulse() {
+      const now = Date.now();
+      if (tapperResetTimeout) clearTimeout(tapperResetTimeout);
+
+      tapperResetTimeout = setTimeout(() => {
+        tapTimes = [];
+        tapCountLabel.textContent = "BEATS: 0";
+      }, 3500);
+
+      tapTimes.push(now);
+      if (tapTimes.length > 8) tapTimes.shift();
+
+      if (tapTimes.length > 1) {
+        const intervals = [];
+        for (let i = 1; i < tapTimes.length; i++) intervals.push(tapTimes[i] - tapTimes[i - 1]);
+        const avg = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        tapperVal.textContent = Math.round(60000 / avg);
+      }
+
+      tapCountLabel.textContent = `BEATS: ${tapTimes.length}`;
+      tapperButton.classList.add("tap-pressed");
+      setTimeout(() => tapperButton.classList.remove("tap-pressed"), 100);
+    }
+
+    tapperButton.addEventListener("click", tapPulse);
+    resetTapper.addEventListener("click", () => {
+      tapTimes = [];
+      tapperVal.textContent = "--";
+      tapCountLabel.textContent = "BEATS: 0";
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && e.target.tagName !== "INPUT") {
+        e.preventDefault();
+        tapPulse();
+      }
+    });
+
+    // ==========================================
+    // 05. 本地音訊分析 (Web Audio API)
+    // ==========================================
+    const dropSurface = document.getElementById("fileDropSurface");
+    const fileInput = document.getElementById("localFileInput");
+    const decodingMask = document.getElementById("fileDecodingMask");
+    const fileStatus = document.getElementById("localFileStatus");
+    const stemLockedBanner = document.getElementById("stemLockedBanner");
+
+    dropSurface.addEventListener("click", () => fileInput.click());
+    dropSurface.addEventListener("dragover", (e) => { e.preventDefault(); dropSurface.classList.add("border-accent-gold"); });
+    dropSurface.addEventListener("dragleave", () => dropSurface.classList.remove("border-accent-gold"));
+    dropSurface.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropSurface.classList.remove("border-accent-gold");
+      if (e.dataTransfer.files.length > 0) handleLocalAudio(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      if (e.target.files.length > 0) handleLocalAudio(e.target.files[0]);
+    });
+
+    function handleLocalAudio(file) {
+      decodingMask.classList.remove("hidden");
+      localFileName = file.name.replace(/\.[^/.]+$/, "");
+
+      const reader = new FileReader();
+      reader.onload = function(ev) {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtx.decodeAudioData(ev.target.result, function(buffer) {
+          decodingMask.classList.add("hidden");
+          isLocalAudioActive = true;
+          fileStatus.textContent = `LOADED: ${file.name.substring(0, 16)}...`;
+          fileStatus.classList.add("text-accent-gold");
+          stemLockedBanner.classList.add("hidden");
+
+          const localTrackObj = blankTrack(localFileName, {
+            artist: "Local Master",
+            genre: ["PCM Audio / Local"],
+            localFile: file,
+            durationSec: buffer.duration
+          });
+          renderTrack(localTrackObj, "LOCAL PCM DECODED");
+          startAnalysis(localTrackObj); // 自動送去後端做 BPM / Key / 和弦 / 分軌
+        }, () => {
+          decodingMask.classList.add("hidden");
+          alert("無法解碼該檔案格式。");
+        });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // ==========================================
+    // 06. 本地 STEM SPLITTER 與鋼琴捲軸音高譜
+    // ==========================================
+    const startStemBtn = document.getElementById("startStemExtractionBtn");
+    const sepProgress = document.getElementById("separationProgressSection");
+    const sepBar = document.getElementById("sepProgressBar");
+    const sepPercent = document.getElementById("sepPercentageText");
+    const sepStatus = document.getElementById("sepStatusText");
+    const stemsConsole = document.getElementById("stemsConsole");
+    const pitchContainer = document.getElementById("vocalPitchRollContainer");
+    const pitchCanvas = document.getElementById("pitchCanvas");
+    const stemsFooter = document.getElementById("stemsDownloadFooter");
+    const masterPlayBtn = document.getElementById("masterPlaybackBtn");
+    const masterPlayIcon = document.getElementById("masterPlayIcon");
+    const masterPlayLabel = document.getElementById("masterPlayLabel");
+
+    const STEM_DEFS = {
+      vocals: { label: "VOCALS 人聲", color: "text-accent-coral", bg: "bg-accent-coral", border: "border-accent-coral/30", freq: 440, type: "sine" },
+      drums: { label: "DRUMS 鼓組", color: "text-accent-cobalt", bg: "bg-accent-cobalt", border: "border-accent-cobalt/30", freq: 100, type: "square" },
+      bass: { label: "BASS 貝斯", color: "text-accent-emerald", bg: "bg-accent-emerald", border: "border-accent-emerald/30", freq: 65, type: "triangle" },
+      other: { label: "OTHER 伴奏", color: "text-accent-gold", bg: "bg-accent-gold", border: "border-accent-gold/30", freq: 330, type: "sawtooth" }
+    };
+
+    let activeStems = [];
+    let stemAudioNodes = {};
+    let stemVolumeStates = { vocals: 0.85, drums: 0.8, bass: 0.75, other: 0.8 };
+    let stemMutes = { vocals: false, drums: false, bass: false, other: false };
+    let stemSolos = { vocals: false, drums: false, bass: false, other: false };
+    let isMasterPlaying = false;
+    let mainAudioCtx = null;
+
+    document.getElementById("toggleAllStemsAction").addEventListener("click", () => {
+      const checkboxes = document.querySelectorAll(".stem-check");
+      const anyUnchecked = Array.from(checkboxes).some(c => !c.checked);
+      checkboxes.forEach(c => c.checked = anyUnchecked);
+    });
+
+    startStemBtn.addEventListener("click", async () => {
+      activeStems = Object.keys(STEM_DEFS).filter(k => {
+        const box = document.getElementById(`chkStem${k.charAt(0).toUpperCase() + k.slice(1)}`);
+        return box && box.checked;
+      });
+      if (activeStems.length === 0) return alert("請至少勾選一個欲分離的聲部！");
+
+      const stems = activeTrack?.analysis?.stems;
+      if (!stems || !Object.keys(stems).length) {
+        alert("未有真實分軌：請先喺上面上傳本地音檔 / 貼 YouTube 連結，等分析完成 (後端要裝咗 Demucs)。");
+        return;
+      }
+      activeStems = activeStems.filter(k => stems[k]);
+      if (!activeStems.length) return alert("後端冇輸出你揀嘅聲部。");
+
+      stopMix(true);
+      sepProgress.classList.remove("hidden");
+      sepBar.style.width = "0%";
+      sepPercent.textContent = "0%";
+      sepStatus.textContent = "LOADING STEMS FROM SERVER...";
+      try {
+        await loadStemBuffers(activeStems.map(k => [k, stems[k]]), (done, total) => {
+          const p = Math.round(done / total * 100);
+          sepBar.style.width = `${p}%`;
+          sepPercent.textContent = `${p}%`;
+          sepStatus.textContent = `DECODING STEM ${done}/${total}...`;
+        });
+      } catch (e) {
+        sepProgress.classList.add("hidden");
+        return alert("載入分軌失敗：" + e.message);
+      }
+      sepProgress.classList.add("hidden");
+      renderStemMixer();
+      stemsFooter.classList.remove("hidden");
+      masterPlayBtn.classList.remove("hidden");
+      if (activeStems.includes("vocals")) {
+        pitchContainer.classList.remove("hidden");
+        drawPitchRoll();
+      } else {
+        pitchContainer.classList.add("hidden");
+      }
+    });
+
+    // ---------- 真實分軌播放引擎 (Web Audio) ----------
+    let stemBuffers = {};      // key -> { url, buffer, peaks }
+    let mixStartCtxTime = 0;   // ctx.currentTime when playback started
+    let mixOffset = 0;         // 秒，暫停位置
+    let mixRaf = null;
+
+    function ensureCtx() {
+      if (!mainAudioCtx) mainAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (mainAudioCtx.state === "suspended") mainAudioCtx.resume();
+      return mainAudioCtx;
+    }
+
+    function computePeaks(buffer, n = 600) {
+      const ch = buffer.getChannelData(0);
+      const ch2 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : null;
+      const step = Math.max(1, Math.floor(ch.length / n));
+      const peaks = new Float32Array(n);
+      let max = 0;
+      for (let i = 0; i < n; i++) {
+        let m = 0;
+        const s = i * step, e = Math.min(ch.length, s + step);
+        for (let j = s; j < e; j += 16) {
+          const v = Math.abs(ch[j]) + (ch2 ? Math.abs(ch2[j]) : 0);
+          if (v > m) m = v;
+        }
+        peaks[i] = m;
+        if (m > max) max = m;
+      }
+      if (max > 0) for (let i = 0; i < n; i++) peaks[i] /= max;
+      return peaks;
+    }
+
+    async function loadStemBuffers(list, onProgress) {
+      const ctx = ensureCtx();
+      let done = 0;
+      await Promise.all(list.map(async ([k, url]) => {
+        if (stemBuffers[k]?.url === url) { onProgress?.(++done, list.length); return; }
+        const full = url.startsWith("http") ? url : API_BASE.replace(/\/api$/, "") + url;
+        const r = await fetch(full);
+        if (!r.ok) throw new Error(`${k} HTTP ${r.status}`);
+        const buffer = await ctx.decodeAudioData(await r.arrayBuffer());
+        stemBuffers[k] = { url, buffer, peaks: computePeaks(buffer) };
+        onProgress?.(++done, list.length);
+      }));
+    }
+
+    function mixDuration() {
+      return Math.max(0, ...activeStems.map(k => stemBuffers[k]?.buffer.duration || 0));
+    }
+    function mixPosition() {
+      if (!isMasterPlaying) return mixOffset;
+      return Math.min(mixDuration(), mixOffset + (mainAudioCtx.currentTime - mixStartCtxTime));
+    }
+
+    function stemTargetGain(k) {
+      const anySolo = activeStems.some(x => stemSolos[x]);
+      if (stemMutes[k] || (anySolo && !stemSolos[k])) return 0;
+      return stemVolumeStates[k];
+    }
+
+    function startMix(fromSec) {
+      const ctx = ensureCtx();
+      stopNodes();
+      mixOffset = Math.max(0, Math.min(fromSec, mixDuration() - 0.05));
+      const when = ctx.currentTime + 0.05;
+      activeStems.forEach(k => {
+        const sb = stemBuffers[k];
+        if (!sb) return;
+        const src = ctx.createBufferSource();
+        src.buffer = sb.buffer;
+        const gain = ctx.createGain();
+        gain.gain.value = stemTargetGain(k);
+        src.connect(gain).connect(ctx.destination);
+        src.start(when, mixOffset);
+        stemAudioNodes[k] = { src, gain };
+      });
+      mixStartCtxTime = when;
+      isMasterPlaying = true;
+      updateMasterBtn();
+      tickMix();
+    }
+
+    function stopNodes() {
+      Object.values(stemAudioNodes).forEach(n => { try { n.src.onended = null; n.src.stop(); } catch (_) {} });
+      stemAudioNodes = {};
+    }
+
+    function stopMix(reset = false) {
+      if (isMasterPlaying) mixOffset = mixPosition();
+      if (reset) mixOffset = 0;
+      stopNodes();
+      isMasterPlaying = false;
+      cancelAnimationFrame(mixRaf);
+      updateMasterBtn();
+      drawAllWaves();
+    }
+
+    function tickMix() {
+      cancelAnimationFrame(mixRaf);
+      const loop = () => {
+        if (!isMasterPlaying) return;
+        if (mixPosition() >= mixDuration() - 0.02) { stopMix(true); return; }
+        drawAllWaves();
+        mixRaf = requestAnimationFrame(loop);
+      };
+      mixRaf = requestAnimationFrame(loop);
+    }
+
+    function updateAudioVolumes() {
+      if (!mainAudioCtx) return;
+      activeStems.forEach(k => {
+        const n = stemAudioNodes[k];
+        if (n) n.gain.gain.setTargetAtTime(stemTargetGain(k), mainAudioCtx.currentTime, 0.03);
+      });
+      drawAllWaves();
+    }
+
+    function updateMasterBtn() {
+      masterPlayIcon.textContent = isMasterPlaying ? "⏸" : "▶";
+      masterPlayLabel.textContent = isMasterPlaying ? "PAUSE" : "PREVIEW ALL";
+      masterPlayBtn.classList.toggle("bg-accent-cobalt", isMasterPlaying);
+      masterPlayBtn.classList.toggle("text-white", isMasterPlaying);
+    }
+
+    const WAVE_COLORS = { vocals: "#f43f5e", drums: "#3b82f6", bass: "#10b981", other: "#eab308" };
+    function fmtTime(s) { s = Math.max(0, s); return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`; }
+
+    function drawAllWaves() {
+      const pos = mixPosition(), dur = mixDuration() || 1;
+      document.querySelectorAll(".stem-wave").forEach(cv => {
+        const k = cv.dataset.stem, sb = stemBuffers[k];
+        const w = cv.width = cv.clientWidth * devicePixelRatio;
+        const h = cv.height = cv.clientHeight * devicePixelRatio;
+        const g = cv.getContext("2d");
+        g.clearRect(0, 0, w, h);
+        if (!sb) return;
+        const audible = stemTargetGain(k) > 0;
+        const peaks = sb.peaks, n = peaks.length, bw = w / n;
+        const playX = (pos / dur) * w;
+        for (let i = 0; i < n; i++) {
+          const x = i * bw, ph = Math.max(1, peaks[i] * (h - 4));
+          g.fillStyle = WAVE_COLORS[k];
+          g.globalAlpha = (audible ? 1 : 0.25) * (x < playX ? 1 : 0.45);
+          g.fillRect(x, (h - ph) / 2, Math.max(1, bw - 0.5), ph);
+        }
+        g.globalAlpha = 1;
+        g.fillStyle = "#ffffff";
+        g.fillRect(playX, 0, Math.max(1, devicePixelRatio), h);
+      });
+      document.querySelectorAll(".stem-time").forEach(el => el.textContent = `${fmtTime(pos)} / ${fmtTime(dur)}`);
+    }
+
+    masterPlayBtn.addEventListener("click", () => {
+      if (!activeStems.length || !activeStems.some(k => stemBuffers[k])) {
+        return alert("請先撳「開始分離所選聲部」載入真實分軌。");
+      }
+      if (isMasterPlaying) stopMix(false);
+      else startMix(mixOffset >= mixDuration() - 0.05 ? 0 : mixOffset);
+    });
+
+    function renderStemMixer() {
+      stemsConsole.innerHTML = activeStems.map(key => {
+        const s = STEM_DEFS[key];
+        return `
+          <div class="bg-obsidian border-glow rounded-lg p-3 space-y-3 font-mono">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="font-bold ${s.color}">${s.label}</span>
+              <span class="flex items-center gap-3">
+                <span class="stem-time text-[9px] text-slate-500">0:00 / 0:00</span>
+                <button class="stem-single-dl text-[9px] text-slate-400 hover:text-white underline" data-stem="${key}">.WAV</button>
+              </span>
+            </div>
+            <canvas class="stem-wave w-full h-12 bg-charcoal rounded border-glow cursor-pointer" data-stem="${key}" title="撳波形跳去該位置"></canvas>
+            <div class="flex items-center gap-1.5 text-[10px]">
+              <button class="stem-m-btn px-2 py-0.5 bg-graphite rounded border-glow text-slate-300 font-bold hover:bg-subtle transition" data-stem="${key}" title="靜音">M</button>
+              <button class="stem-s-btn px-2 py-0.5 bg-graphite rounded border-glow text-slate-300 font-bold hover:bg-subtle transition" data-stem="${key}" title="獨奏 (只聽呢軌)">S</button>
+              <input type="range" min="0" max="100" value="${stemVolumeStates[key] * 100}" class="stem-vol-slider w-full h-1 bg-graphite rounded" data-stem="${key}">
+            </div>
+            <div class="pt-1 border-t border-glow flex justify-between items-center text-[9px] text-slate-400">
+              <span>MIDI TRACK</span>
+              <button class="stem-midi-dl text-accent-gold hover:underline" data-stem="${key}">.MID 導出</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      bindStemControls();
+      document.querySelectorAll(".stem-wave").forEach(cv => {
+        cv.addEventListener("click", (e) => {
+          const r = cv.getBoundingClientRect();
+          const t = ((e.clientX - r.left) / r.width) * mixDuration();
+          if (isMasterPlaying) startMix(t); else { mixOffset = t; drawAllWaves(); }
+        });
+      });
+      // 重設 M/S 按鈕狀態顯示
+      activeStems.forEach(k => {
+        document.querySelector(`.stem-m-btn[data-stem="${k}"]`)?.classList.toggle("bg-accent-coral", stemMutes[k]);
+        document.querySelector(`.stem-s-btn[data-stem="${k}"]`)?.classList.toggle("bg-accent-gold", stemSolos[k]);
+      });
+      requestAnimationFrame(drawAllWaves);
+    }
+    window.addEventListener("resize", () => drawAllWaves());
+
+    function bindStemControls() {
+      document.querySelectorAll(".stem-m-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const k = btn.dataset.stem;
+          stemMutes[k] = !stemMutes[k];
+          btn.classList.toggle("bg-accent-coral", stemMutes[k]);
+          btn.classList.toggle("text-white", stemMutes[k]);
+          updateAudioVolumes();
+        });
+      });
+
+      document.querySelectorAll(".stem-s-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const k = btn.dataset.stem;
+          stemSolos[k] = !stemSolos[k];
+          btn.classList.toggle("bg-accent-gold", stemSolos[k]);
+          btn.classList.toggle("text-black", stemSolos[k]);
+          updateAudioVolumes();
+        });
+      });
+
+      document.querySelectorAll(".stem-vol-slider").forEach(sl => {
+        sl.addEventListener("input", (e) => {
+          const k = sl.dataset.stem;
+          stemVolumeStates[k] = parseFloat(e.target.value) / 100;
+          updateAudioVolumes();
+        });
+      });
+
+      document.querySelectorAll(".stem-single-dl").forEach(b => {
+        b.addEventListener("click", () => {
+          const k = b.dataset.stem;
+          const url = activeTrack.analysis?.stems?.[k];
+          if (url) return triggerUrlDownload(url, `${safeName(activeTrack.title)}_${Math.round(activeTrack.bpm || 120)}BPM_${k.toUpperCase()}.wav`);
+          alert("未有真實分軌檔案：請確認後端已安裝 Demucs，並等分析完成。");
+        });
+      });
+
+      document.querySelectorAll(".stem-midi-dl").forEach(b => {
+        b.addEventListener("click", () => {
+          const k = b.dataset.stem;
+          const url = activeTrack.analysis?.midi?.[k];
+          if (url) return triggerUrlDownload(url, `${safeName(activeTrack.title)}_${k.toUpperCase()}.mid`);
+          alert("未有呢個聲部嘅 MIDI：請等分析完成 (人聲 / 貝斯需要 Demucs 分軌)。");
+        });
+      });
+    }
+
+    function drawPitchRoll() {
+      const ctx = pitchCanvas.getContext("2d");
+      const w = pitchCanvas.width = pitchCanvas.parentElement.clientWidth - 32;
+      const h = pitchCanvas.height = 110;
+      ctx.fillStyle = "#0f131a";
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+      ctx.lineWidth = 1;
+      for (let y = 0; y < h; y += 18) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+      for (let x = 0; x < w; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+
+      const curve = activeTrack.analysis?.f0_curve;
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "10px monospace";
+      if (!curve || !curve.length) {
+        ctx.fillText("等待人聲 F0 分析結果 (需要 Demucs 分出人聲)...", 12, h / 2);
+        return;
+      }
+      const voiced = curve.filter(p => p[1] !== null).map(p => p[1]);
+      if (!voiced.length) { ctx.fillText("偵測唔到人聲音高", 12, h / 2); return; }
+      const sorted = [...voiced].sort((a, b) => a - b);
+      const lo = Math.floor(sorted[Math.floor(sorted.length * 0.02)]) - 1;
+      const hi = Math.ceil(sorted[Math.floor(sorted.length * 0.98)]) + 1;
+      const tEnd = curve[curve.length - 1][0] || 1;
+      const X = t => 28 + (t / tEnd) * (w - 34);
+      const Y = m => h - 6 - ((m - lo) / Math.max(1, hi - lo)) * (h - 12);
+
+      ctx.strokeStyle = "#f43f5e";
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = "#f43f5e";
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      let pen = false;
+      curve.forEach(([t, m]) => {
+        if (m === null || m < lo || m > hi) { pen = false; return; }
+        if (!pen) { ctx.moveTo(X(t), Y(m)); pen = true; } else ctx.lineTo(X(t), Y(m));
+      });
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      const NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+      const noteName = m => `${NAMES[((m % 12) + 12) % 12]}${Math.floor(m / 12) - 1}`;
+      [hi, Math.round((hi + lo) / 2), lo].forEach(m => ctx.fillText(noteName(m), 2, Math.min(h - 2, Math.max(10, Y(m) + 3))));
+    }
+
+    document.getElementById("dlVocalMelodyMidiBtn").addEventListener("click", () => {
+      const url = activeTrack.analysis?.midi?.vocals;
+      if (url) return triggerUrlDownload(url, `${safeName(activeTrack.title)}_${Math.round(activeTrack.bpm || 120)}BPM_Vocal_Lead.mid`);
+      alert("未有人聲旋律 MIDI：需要 Demucs 分出人聲，並等分析完成。");
+    });
+
+    // ==========================================
+    // 07. JSZip 全軌打包下載 (.ZIP)
+    // ==========================================
+    document.getElementById("dlAllMidiZipBtn").addEventListener("click", async () => {
+      const zip = new JSZip();
+      const folder = zip.folder(`${activeTrack.title}_MIDI_STEMS`);
+
+      const t = activeTrack;
+      const files = { "01_Chords_Harmonic.mid": t.analysis?.midi?.chords, "02_Vocal_Melody.mid": t.analysis?.midi?.vocals,
+                      "03_Bassline.mid": t.analysis?.midi?.bass, "04_Drums_GM.mid": t.analysis?.midi?.drums, "05_Other.mid": t.analysis?.midi?.other };
+      let added = 0;
+      for (const [fname, url] of Object.entries(files)) {
+        if (!url) continue;
+        try {
+          const r = await fetch(API_BASE.replace(/\/api$/, "") + url);
+          if (r.ok) { folder.file(fname, await r.arrayBuffer()); added++; }
+        } catch (e) { console.warn(fname, e); }
+      }
+      if (!added) {
+        const chords = [...(t.verse || []), ...(t.chorus || [])];
+        if (!needChords(chords)) return;
+        folder.file("01_Chords_Harmonic.mid", createChordMidi(chords, null, midiBpm(), "Chords", t.time_signature));
+      }
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${activeTrack.title}_${activeTrack.bpm}BPM_${activeTrack.key}_MIDISet.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("dlAllWavZipBtn").addEventListener("click", async () => {
+      const zip = new JSZip();
+      const folder = zip.folder(`${activeTrack.title}_24bit_WAV_STEMS`);
+
+      const stems = activeTrack.analysis?.stems || {};
+      const keys = (activeStems.length ? activeStems : Object.keys(stems)).filter(k => stems[k]);
+      if (!keys.length) return alert("未有真實分軌檔案：請先分析本地音檔 / YouTube (後端要裝 Demucs)。");
+      const base = safeName(activeTrack.title);
+      let added = 0;
+      for (const k of keys) {
+        try {
+          const u = stems[k].startsWith("http") ? stems[k] : API_BASE.replace(/\/api$/, "") + stems[k];
+          const r = await fetch(u);
+          if (r.ok) { folder.file(`${base}_${Math.round(activeTrack.bpm || 120)}BPM_${k.toUpperCase()}.wav`, await r.arrayBuffer()); added++; }
+        } catch (e) { console.warn(k, e); }
+      }
+      if (!added) return alert("下載分軌失敗，請確認後端仲開緊。");
+      folder.file("SESSION_INFO.txt", `Track: ${activeTrack.title}\nBPM: ${activeTrack.bpm}\nKey: ${activeTrack.key}\nStems: ${keys.join(", ")} (Demucs htdemucs)\nTip: 全部 WAV 由 0 秒開始，直接拖入 Logic Pro 會自動對齊。\nCreated by BeatChord Studio.`);
+
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(content);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${activeTrack.title}_${activeTrack.bpm}BPM_STEMS_PACK.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // ==========================================
+    // 08. 和弦進程反向檢索表格
+    // ==========================================
+    const progButtons = document.querySelectorAll(".prog-filter-btn");
+    const reverseTable = document.getElementById("reverseCatalogTable");
+
+    function filterReverseCatalog(progCode) {
+      progButtons.forEach(btn => {
+        const isMatch = btn.dataset.prog === progCode;
+        btn.classList.toggle("bg-accent-cobalt", isMatch);
+        btn.classList.toggle("text-white", isMatch);
+        btn.classList.toggle("bg-obsidian", !isMatch);
+        btn.classList.toggle("text-slate-400", !isMatch);
+      });
+
+      const matches = FALLBACK_CATALOG.filter(c => c.roman === progCode);
+      if (matches.length > 0) {
+        reverseTable.innerHTML = matches.map(m => `
+          <tr class="hover:bg-subtle transition">
+            <td class="py-2.5 font-bold text-white">${m.title}</td>
+            <td class="py-2.5 text-slate-400">${m.artist}</td>
+            <td class="py-2.5 text-accent-cobalt font-bold">${m.bpm}</td>
+            <td class="py-2.5 text-accent-gold">${m.key}</td>
+            <td class="py-2.5 text-right">
+              <button onclick="selectSuggestion('${m.id}')" class="text-[10px] text-accent-cobalt hover:underline font-bold">LOAD SPEC</button>
+            </td>
+          </tr>
+        `).join("");
+      } else {
+        reverseTable.innerHTML = `<tr><td colspan="5" class="py-3 text-center text-slate-400">此進程目前暫無預載資料。</td></tr>`;
+      }
+    }
+
+    progButtons.forEach(btn => {
+      btn.addEventListener("click", () => filterReverseCatalog(btn.dataset.prog));
+    });
+
+    // 啟動初始化
+    renderTrack({ ...FALLBACK_CATALOG[0], isDemo: true }, "DEMO CATALOG");
+    filterReverseCatalog("I - V - vi - IV");
+  </script>
+</body>
+</html>
